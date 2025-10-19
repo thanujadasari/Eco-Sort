@@ -1,0 +1,7 @@
+{
+  "name": "EcoSort2",
+  "description": "An AI-powered application to classify waste items from an image, providing recycling information and identifying rare earth elements in e-waste.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

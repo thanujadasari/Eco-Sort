@@ -1,0 +1,84 @@
+package com.ecosort;
+
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+
+import java.sql.*;
+
+public class Database {
+    private static HikariDataSource dataSource;
+
+    public static void init() {
+        HikariConfig config = new HikariConfig();
+        String jdbcUrl = "jdbc:postgresql://localhost:5432/ecosortdb?user=ecosortuser&password=ecosortpass";
+
+        config.setJdbcUrl(jdbcUrl);
+        config.setDriverClassName("org.postgresql.Driver");
+        config.setMaximumPoolSize(10);
+
+        dataSource = new HikariDataSource(config);
+    }
+
+    public static Connection getConnection() throws SQLException {
+        if (dataSource == null) {
+            init();
+        }
+        return dataSource.getConnection();
+    }
+
+    // ✅ Create user (Signup)
+    public static void createUser(String name, String email, String password) throws SQLException {
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement("INSERT INTO users (name, email, password) VALUES (?, ?, ?)")) {
+            stmt.setString(1, name);
+            stmt.setString(2, email);
+            stmt.setString(3, password);
+            stmt.executeUpdate();
+        }
+    }
+
+    // ✅ Find user by email (Login)
+    public static ResultSet findUserByEmail(String email) throws SQLException {
+        Connection conn = getConnection();
+        PreparedStatement stmt = conn.prepareStatement("SELECT * FROM users WHERE email = ?");
+        stmt.setString(1, email);
+        return stmt.executeQuery();
+    }
+
+    // ✅ Save AI detection result
+    public static void saveResult(int userId, String wasteType, String compositionJson) throws SQLException {
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement("INSERT INTO results (user_id, waste_type, composition) VALUES (?, ?, ?)")) {
+            stmt.setInt(1, userId);
+            stmt.setString(2, wasteType);
+            stmt.setString(3, compositionJson);
+            stmt.executeUpdate();
+        }
+    }
+
+    // ✅ Get all previous results for a user
+    public static String getHistoryJson(int userId) throws SQLException {
+        JsonArray jsonArray = new JsonArray();
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement("SELECT waste_type, composition, created_at FROM results WHERE user_id = ? ORDER BY created_at DESC")) {
+            stmt.setInt(1, userId);
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                JsonObject obj = new JsonObject();
+                obj.addProperty("waste_type", rs.getString("waste_type"));
+                obj.addProperty("composition", rs.getString("composition"));
+                obj.addProperty("created_at", rs.getString("created_at"));
+                jsonArray.add(obj);
+            }
+        }
+        return jsonArray.toString();
+    }
+
+    public static void close() {
+        if (dataSource != null) {
+            dataSource.close();
+        }
+    }
+}
